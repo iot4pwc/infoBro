@@ -1,2 +1,10 @@
 source/source.iml
 source/.idea/
+.git/
+source/.classpath
+source/.gitignore
+source/.settings
+source/.vertx
+source/file-uploads
+source/logs
+source/target
