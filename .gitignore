@@ -8,3 +8,4 @@ source/.vertx
 source/file-uploads
 source/logs/
 source/target
+source/.project
