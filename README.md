@@ -1,2 +1,2 @@
-# infoBro
+# information broadcaster
 information broadcaster
