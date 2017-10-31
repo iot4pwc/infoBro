@@ -6,5 +6,5 @@ source/.gitignore
 source/.settings
 source/.vertx
 source/file-uploads
-source/logs
+source/logs/
 source/target
