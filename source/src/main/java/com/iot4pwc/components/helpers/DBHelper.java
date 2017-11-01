@@ -47,7 +47,7 @@ public class DBHelper {
   public boolean insert(JsonObject recordObject, Queriable table) {
     try {
       Connection connection = ds.getConnection();
-      PreparedStatement pstmt = getInsertStatement(table, recordObject, connection);
+      PreparedStatement pstmt = getInsertStatement(table, recordObject, connection, false);
       System.out.println(pstmt.toString());
       pstmt.execute();
       connection.close();
@@ -65,9 +65,9 @@ public class DBHelper {
       
       PreparedStatement pstmt;
       if (isReplace) {
-        pstmt = getReplaceStatement(table, recordObject, connection); 
+        pstmt = getInsertStatement(table, recordObject, connection, isReplace); 
       } else {
-        pstmt = getInsertStatement(table, recordObject, connection);
+        pstmt = getInsertStatement(table, recordObject, connection, isReplace);
       }
       System.out.println(pstmt.toString());
       pstmt.execute();
@@ -83,7 +83,8 @@ public class DBHelper {
   private PreparedStatement getInsertStatement(
       Queriable table,
       JsonObject recordObject,
-      Connection connection
+      Connection connection,
+      boolean isReplace
       ) throws SQLException {
     List<String> attributeNames = new LinkedList<>();
     StringBuilder attrSection = new StringBuilder();
@@ -99,44 +100,24 @@ public class DBHelper {
     attrSection.deleteCharAt(attrSection.length() - 1);
     valueSection.deleteCharAt(valueSection.length() - 1);
 
-    String query = String.format(
-        "INSERT INTO %s (%s) VALUES (%s)",
-        table.getTableName(),
-        attrSection.toString(),
-        valueSection.toString()
-        );
-
-    PreparedStatement preparedStatement = connection.prepareStatement(query);
-    table.configureInsertPstmt(preparedStatement, recordObject, attributeNames);
-    return preparedStatement;
-  }
-
-  private PreparedStatement getReplaceStatement(
-      Queriable table,
-      JsonObject recordObject,
-      Connection connection
-      ) throws SQLException {
-    List<String> attributeNames = new LinkedList<>();
-    StringBuilder attrSection = new StringBuilder();
-    StringBuilder valueSection = new StringBuilder();
-
-    for (Map.Entry<String, Object> entry : recordObject) {
-      String attributeName = entry.getKey();
-      attributeNames.add(attributeName);
-      attrSection.append(attributeName + ",");
-      valueSection.append("?,");
+    String query;
+    
+    if (isReplace) {
+      query = String.format(
+          "REPLACE INTO %s (%s) VALUES (%s)",
+          table.getTableName(),
+          attrSection.toString(),
+          valueSection.toString()
+          );
+    } else {
+      query = String.format(
+          "INSERT INTO %s (%s) VALUES (%s)",
+          table.getTableName(),
+          attrSection.toString(),
+          valueSection.toString()
+          );
     }
-
-    attrSection.deleteCharAt(attrSection.length() - 1);
-    valueSection.deleteCharAt(valueSection.length() - 1);
-
-    String query = String.format(
-        "REPLACE INTO %s (%s) VALUES (%s)",
-        table.getTableName(),
-        attrSection.toString(),
-        valueSection.toString()
-        );
-
+   
     PreparedStatement preparedStatement = connection.prepareStatement(query);
     table.configureInsertPstmt(preparedStatement, recordObject, attributeNames);
     return preparedStatement;
