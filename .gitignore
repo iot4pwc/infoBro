@@ -2,3 +2,11 @@ source/source.iml
 source/.idea/
 web/dist
 web/node_modules
+source/.classpath
+source/.gitignore
+source/.settings
+source/.vertx
+source/file-uploads
+source/logs/
+source/target
+source/.project
