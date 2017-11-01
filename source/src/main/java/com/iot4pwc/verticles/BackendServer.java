@@ -53,11 +53,11 @@ public class BackendServer extends AbstractVerticle {
 
     vertx.createHttpServer(
         new HttpServerOptions()
-        //        .setSsl(true)
-        //        .setPemKeyCertOptions(
-        //          new PemKeyCertOptions()
-        //            .setKeyPath(ConstLib.PRIVATE_KEY_PATH)
-        //            .setCertPath(ConstLib.CERTIFICATE_PATH))
+//        .setSsl(true)
+//        .setPemKeyCertOptions(
+//            new PemKeyCertOptions()
+//            .setKeyPath(ConstLib.PRIVATE_KEY_PATH)
+//            .setCertPath(ConstLib.CERTIFICATE_PATH))
         ).requestHandler(router::accept).listen(ConstLib.HTTP_SERVER_PORT, ConstLib.HTTP_SERVER_IP);
 
     logger.info("RESTful service running on port " + ConstLib.HTTP_SERVER_PORT);
@@ -496,7 +496,7 @@ public class BackendServer extends AbstractVerticle {
     recordObject.put(UserDetail.type, "text");
 
     // Do the insertion
-    dbHelper.insert(recordObject, UserDetail.getInstance());
+    dbHelper.insert(recordObject, UserDetail.getInstance(), true);
 
     // Assemble the recordObject to be inserted into the user table.
     recordObject = new JsonObject();
@@ -516,7 +516,7 @@ public class BackendServer extends AbstractVerticle {
     recordObject.put(UserDetail.type, "image");
 
     // Do the insertion
-    dbHelper.insert(recordObject, UserDetail.getInstance());
+    dbHelper.insert(recordObject, UserDetail.getInstance(), true);
 
     // Assemble the recordObject to be inserted into the user table.
     recordObject = new JsonObject();
@@ -536,7 +536,7 @@ public class BackendServer extends AbstractVerticle {
     recordObject.put(UserDetail.type, "text");
 
     // Do the insertion
-    dbHelper.insert(recordObject, UserDetail.getInstance());
+    dbHelper.insert(recordObject, UserDetail.getInstance(), true);
   }
 
   private String getHostToken(String meetingRoomID) {

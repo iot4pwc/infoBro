@@ -43,22 +43,6 @@ public class DBHelper {
     return DBHelper.instance;
   }
 
-
-  public boolean insert(JsonObject recordObject, Queriable table) {
-    try {
-      Connection connection = ds.getConnection();
-      PreparedStatement pstmt = getInsertStatement(table, recordObject, connection, false);
-      System.out.println(pstmt.toString());
-      pstmt.execute();
-      connection.close();
-      return true;
-
-    } catch (SQLException e) {
-      e.printStackTrace();
-    }
-    return false;
-  }
-
   public boolean insert (JsonObject recordObject, Queriable table, boolean isReplace) {
     try {
       Connection connection = ds.getConnection();

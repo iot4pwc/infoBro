@@ -20,8 +20,8 @@ public class ConstLib {
   public static final int HTTP_SERVER_PORT = 8080;
   
   // SSL related constants
-  public static final String PRIVATE_KEY_PATH = "src/main/resources/ca.key";
-  public static final String CERTIFICATE_PATH = "src/main/resources/ca.crt";
+  public static final String PRIVATE_KEY_PATH = "ca.key";
+  public static final String CERTIFICATE_PATH = "ca.crt";
   
   // Business logic related constants
   public static final String NORMAL_USER = "";
