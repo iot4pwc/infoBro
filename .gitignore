@@ -1,2 +1,4 @@
 source/source.iml
 source/.idea/
+web/dist
+web/node_modules
