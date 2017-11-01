@@ -4,8 +4,9 @@ import org.apache.logging.log4j.Level;
 
 public class ConstLib {
   public static final String BACKEND_WORKER_EXECUTOR_POOL = "";
-  public static final int BACKEND_WORKER_POOL_SIZE = 0;
+  public static final int BACKEND_WORKER_POOL_SIZE = 2;
   
+  public static final int CLUSTER_EVENT_BUS_PORT = 37288;
   
   public static final String MYSQL_CONNECTION_STRING = "jdbc:mysql://%s/%s?autoReconnect=true&useSSL=false";
   public static final String INFORMATION_BROADCASTER = "information_broadcaster";
