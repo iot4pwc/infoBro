@@ -18,6 +18,7 @@ public class ConstLib {
   // HTTP related constants.
   public static final String HTTP_SERVER_IP = "127.0.0.1";
   public static final int HTTP_SERVER_PORT = 8080;
+  public static final int HTTPS_SERVER_PORT = 8443;
   
   // SSL related constants
   public static final String PRIVATE_KEY_PATH = "ca.key";
@@ -38,5 +39,5 @@ public class ConstLib {
   
   //TODO: Logging not working for now.
   public static final Level LOGGING_LEVEL = Level.INFO;
-  public static final String LOGGING_CONFIG = "src/main/resources/log4j2.xml";
+  public static final String LOGGING_CONFIG = "log4j2.xml";
 }
