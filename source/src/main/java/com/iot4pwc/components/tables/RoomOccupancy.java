@@ -12,6 +12,10 @@ public class RoomOccupancy extends Queriable {
   public static final String meetingRoom = "room_id";
   public static final String hostToken = "host_token";
   private static RoomOccupancy tableInstance;
+  
+  // Added this constant here because it logically belongs to RoomOccupancy, though it is not used.
+  public static final String hostFlag = "host_flag";
+  public static final String token = "token";
 
   public static RoomOccupancy getInstance() {
     if (tableInstance == null) {

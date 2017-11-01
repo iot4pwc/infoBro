@@ -14,6 +14,15 @@ public class UserDetail extends Queriable {
   public static final String type = "info_type";
   private static UserDetail tableInstance;
   
+  public static final String firstName = "firstName";
+  public static final String lastName = "lastName";
+  public static final String dateOfBirth = "dateOfBirth";
+  public static final String resumeLink = "resumeLink";
+  public static final String profilePicture = "profilePicture";
+  public static final String position = "position";
+  public static final String company = "company";
+
+  
   public static UserDetail getInstance() {
     if (tableInstance == null) {
       return new UserDetail();

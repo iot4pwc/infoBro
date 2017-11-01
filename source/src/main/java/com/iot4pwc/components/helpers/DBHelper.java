@@ -59,10 +59,16 @@ public class DBHelper {
     return false;
   }
 
-  public boolean replace(JsonObject recordObject, Queriable table) {
+  public boolean insert (JsonObject recordObject, Queriable table, boolean isReplace) {
     try {
       Connection connection = ds.getConnection();
-      PreparedStatement pstmt = getReplaceStatement(table, recordObject, connection);
+      
+      PreparedStatement pstmt;
+      if (isReplace) {
+        pstmt = getReplaceStatement(table, recordObject, connection); 
+      } else {
+        pstmt = getInsertStatement(table, recordObject, connection);
+      }
       System.out.println(pstmt.toString());
       pstmt.execute();
       connection.close();

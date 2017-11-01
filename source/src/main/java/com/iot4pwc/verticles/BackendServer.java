@@ -1,7 +1,4 @@
 package com.iot4pwc.verticles;
-import java.io.UnsupportedEncodingException;
-// There's a ton of unused imports here. Let's clean that up. Will create a ticket for this.
-import java.net.URLDecoder;
 import java.util.List;
 import java.util.Random;
 import org.apache.logging.log4j.LogManager;
@@ -12,8 +9,11 @@ import com.iot4pwc.components.tables.RoomOccupancy;
 import com.iot4pwc.components.tables.UserDetail;
 import com.iot4pwc.constants.ConstLib;
 import io.vertx.core.AbstractVerticle;
+//import io.vertx.core.WorkerExecutor;  // --> This import is problematic.
+import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.net.PemKeyCertOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
@@ -22,16 +22,25 @@ public class BackendServer extends AbstractVerticle {
 
   //TODO: Logging does not work yet.
   Logger logger;
-  
+  DBHelper dbHelper;
+
   @Override
   public void start() {
     Router router = Router.router(vertx);
 
-  //TODO: Logging does not work yet.
-    Logger logger = LogManager.getLogger(BackendServer.class);
+    //TODO: Logging does not work yet.
+    logger = LogManager.getLogger(BackendServer.class);
 
-    logger.info("Initializing RESTful service running on port 8080");
-    
+    //    WorkerExecutor executor = vertx.createSharedWorkerExecutor(
+    //        ConstLib.BACKEND_WORKER_EXECUTOR_POOL,
+    //        ConstLib.BACKEND_WORKER_POOL_SIZE
+    //        );
+    //    executor.executeBlocking (future -> {
+    dbHelper = DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER);
+    //    });
+
+    logger.info("Initializing RESTful service running on port " + ConstLib.HTTP_SERVER_PORT);
+
     router.route().handler(BodyHandler.create());
     router.get("/mapUUIDs").handler(this::mapUUIDs);
     router.post("/:meetingRoomID/checkin").handler(this::checkin);
@@ -42,20 +51,27 @@ public class BackendServer extends AbstractVerticle {
     router.post("/:meetingRoomID/postFile").handler(this::postFile);
     router.delete("/:meetingRoomID/deleteFile").handler(this::deleteFile);
 
-    vertx.createHttpServer().requestHandler(router::accept).listen(8080, "127.0.0.1");
-    
-    logger.info("RESTful service running on port 8080");
+    vertx.createHttpServer(
+        new HttpServerOptions()
+        //        .setSsl(true)
+        //        .setPemKeyCertOptions(
+        //          new PemKeyCertOptions()
+        //            .setKeyPath(ConstLib.PRIVATE_KEY_PATH)
+        //            .setCertPath(ConstLib.CERTIFICATE_PATH))
+        ).requestHandler(router::accept).listen(ConstLib.HTTP_SERVER_PORT, ConstLib.HTTP_SERVER_IP);
+
+    logger.info("RESTful service running on port " + ConstLib.HTTP_SERVER_PORT);
   }
 
   private void mapUUIDs(RoutingContext routingContext) {
     logger.info("GET " + routingContext.request().uri());
-    String allUUIDs = routingContext.request().getParam("uuid");
+    String allUUIDs = routingContext.request().getParam(ConstLib.UUID_PARAMETER);
 
     // Prepare the IN clause
     allUUIDs = allUUIDs.replaceAll(",", "','");
 
     // Get the JSON object from the DB
-    List<JsonObject> result = DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER)
+    List<JsonObject> result = dbHelper
         .select("SELECT uuid_room.uuid, uuid_room.room_id, room_info.room_name "
             + "FROM uuid_room "
             + "JOIN room_info "
@@ -76,40 +92,38 @@ public class BackendServer extends AbstractVerticle {
     logger.info(routingContext.getBodyAsString());
 
     if(body.isEmpty() 
-        || !body.containsKey("hostFlag") 
-        || !body.containsKey("email") 
-        || !body.containsKey("firstName")
-        || !body.containsKey("lastName")
-        || !body.containsKey("dateOfBirth") 
-        || !body.containsKey("resumeLink")
-        || !body.containsKey("profilePicture")
-        || !body.containsKey("position") 
-        || !body.containsKey("company")) {
+        || !body.containsKey(RoomOccupancy.hostFlag) 
+        || !body.containsKey(RoomOccupancy.user) 
+        || !body.containsKey(UserDetail.firstName)
+        || !body.containsKey(UserDetail.lastName)
+        || !body.containsKey(UserDetail.dateOfBirth) 
+        || !body.containsKey(UserDetail.resumeLink)
+        || !body.containsKey(UserDetail.profilePicture)
+        || !body.containsKey(UserDetail.position) 
+        || !body.containsKey(UserDetail.company)) {
       routingContext.response()
       .putHeader("content-type", "application/json; charset=utf-8")
       .setStatusCode(400)
       .end();
     } else {
-      String meetingRoom = routingContext.request().getParam("meetingRoomID");
-      boolean hostFlag = body.getBoolean("hostFlag");
-      String email = body.getString("email");
-      String firstName = body.getString("firstName");
-      String lastName = body.getString("lastName");
-      String dateOfBirth = body.getString("dateOfBirth");
-      String resumeLink = body.getString("resumeLink");
-      String profilePicture = body.getString("profilePicture");
-      String position = body.getString("position");
-      String company = body.getString("company");
+      String meetingRoom = routingContext.request().getParam(ConstLib.MEETING_ROOM_ID_URL_PATTERN);
+      boolean hostFlag = body.getBoolean(RoomOccupancy.hostFlag);
+      String email = body.getString(RoomOccupancy.user);
 
       logger.info("Current host token: " + getHostToken(meetingRoom));
 
       String hostToken;
+      JsonObject response = new JsonObject();
+
 
       // host_token will be only set for the host.
-      if (hostFlag == true) {
+      if (hostFlag) {
         // If there is no host currently, assign a new token.
         if (getHostToken(meetingRoom) == null) {
           hostToken = generateHostToken();
+
+          response.put("host_token", hostToken);
+          response.put("hashed_host_token", getMD5(hostToken));
 
           // Else, ignore request for a new host token if from a new email.
         } else {
@@ -118,110 +132,33 @@ public class BackendServer extends AbstractVerticle {
             logger.info("Saved host token: " + getHostToken(meetingRoom));
             hostToken = getHostToken(meetingRoom);
           } else {
-            hostToken = "";
+            hostToken = ConstLib.NORMAL_USER;
           }
         } 
 
         // Non-hosts do not get tokens.
       } else {
         logger.info("Saved host token: " + getHostToken(meetingRoom));
-        hostToken = "";
+        hostToken = ConstLib.NORMAL_USER;
       }
 
       // Assemble the recordObject to be inserted into the meeting_room_occupancy table.
       JsonObject recordObject = new JsonObject();
-      recordObject.put("user_email", email);
-      recordObject.put("room_id", new Integer(meetingRoom));
-      recordObject.put("host_token", hostToken);
+      recordObject.put(RoomOccupancy.user, email);
+      recordObject.put(RoomOccupancy.meetingRoom, new Integer(meetingRoom));
+      recordObject.put(RoomOccupancy.hostToken, hostToken);
 
       // Do the insertion
-      DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER).replace(recordObject, RoomOccupancy.getInstance());
+      dbHelper.insert(recordObject, RoomOccupancy.getInstance(), true);
 
-      // Assemble the recordObject to be inserted into the user table.
-      recordObject = new JsonObject();
-      recordObject.put("user_email", email);
-      recordObject.put("info_key", "email");
-      recordObject.put("info_value", email);
-      recordObject.put("info_type", "text");
-
-      // Do the insertion
-      DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER).replace(recordObject, UserDetail.getInstance());
-
-      // Assemble the recordObject to be inserted into the user table.
-      recordObject = new JsonObject();
-      recordObject.put("user_email", email);
-      recordObject.put("info_key", "firstName");
-      recordObject.put("info_value", firstName);
-      recordObject.put("info_type", "text");
-
-      // Do the insertion
-      DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER).replace(recordObject, UserDetail.getInstance());
-
-      // Assemble the recordObject to be inserted into the user table.
-      recordObject = new JsonObject();
-      recordObject.put("user_email", email);
-      recordObject.put("info_key", "lastName");
-      recordObject.put("info_value", lastName);
-      recordObject.put("info_type", "text");
-
-      // Do the insertion
-      DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER).replace(recordObject, UserDetail.getInstance());
-
-      // Assemble the recordObject to be inserted into the user table.
-      recordObject = new JsonObject();
-      recordObject.put("user_email", email);
-      recordObject.put("info_key", "dateOfBirth");
-      recordObject.put("info_value", dateOfBirth);
-      recordObject.put("info_type", "text");
-
-      // Do the insertion
-      DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER).insert(recordObject, UserDetail.getInstance());
-
-      // Assemble the recordObject to be inserted into the user table.
-      recordObject = new JsonObject();
-      recordObject.put("user_email", email);
-      recordObject.put("info_key", "resumeLink");
-      recordObject.put("info_value", resumeLink);
-      recordObject.put("info_type", "url");
-
-      // Do the insertion
-      DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER).replace(recordObject, UserDetail.getInstance());
-
-      // Assemble the recordObject to be inserted into the user table.
-      recordObject = new JsonObject();
-      recordObject.put("user_email", email);
-      recordObject.put("info_key", "profilePicture");
-      recordObject.put("info_value", profilePicture);
-      recordObject.put("info_type", "image");
-
-      // Do the insertion
-      DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER).insert(recordObject, UserDetail.getInstance());
-
-      // Assemble the recordObject to be inserted into the user table.
-      recordObject = new JsonObject();
-      recordObject.put("user_email", email);
-      recordObject.put("info_key", "position");
-      recordObject.put("info_value", position);
-      recordObject.put("info_type", "text");
-
-      // Do the insertion
-      DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER).replace(recordObject, UserDetail.getInstance());
-
-      // Assemble the recordObject to be inserted into the user table.
-      recordObject = new JsonObject();
-      recordObject.put("user_email", email);
-      recordObject.put("info_key", "company");
-      recordObject.put("info_value", company);
-      recordObject.put("info_type", "text");
-
-      // Do the insertion
-      DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER).insert(recordObject, UserDetail.getInstance());
+      // Insert all key-value pairs.
+      insertAllUserInformation(body); 
 
       // Respond with correct HTTP code.
       routingContext.response()
       .putHeader("content-type", "application/json; charset=utf-8")
       .setStatusCode(200)
-      .end(); 
+      .end(response.encodePrettily()); 
     }
   }
 
@@ -231,43 +168,41 @@ public class BackendServer extends AbstractVerticle {
     logger.info(routingContext.getBodyAsString());
 
     if(body.isEmpty() 
-        || !body.containsKey("email")) {
+        || !body.containsKey(RoomOccupancy.user)) {
       routingContext.response()
       .putHeader("content-type", "application/json; charset=utf-8")
       .setStatusCode(400)
       .end();
     } else {
-      String meetingRoom = routingContext.request().getParam("meetingRoomID");
-      String email = body.getString("email");
-      String token = body.getString("token"); 
+      String meetingRoom = routingContext.request().getParam(ConstLib.MEETING_ROOM_ID_URL_PATTERN);
+      String email = body.getString(RoomOccupancy.user);
+      String token = body.getString(RoomOccupancy.token); 
 
       // We need to do three things here:
       String actualHostToken = getHostToken(meetingRoom);      
 
-      logger.info("Actual host token is " + actualHostToken);
+      //      logger.info("Actual host token is " + actualHostToken);
       logger.info("Similarity check: " + isFancyIdentical(actualHostToken, actualHostToken, token, 5));
 
-      int numberOfCharactersIdentical = 5;
-
       // Checkout of host will delete all files in meeting room and check everybody else out.
-      if (isFancyIdentical(actualHostToken, actualHostToken, token, numberOfCharactersIdentical)) {
+      if (isFancyIdentical(actualHostToken, actualHostToken, token, ConstLib.CHARACTERS_REQUIRED_FOR_SIMILARITY)) {
         // doSendEmail(ListOfRecords, email); --> NOT IN MVP.
 
         // Delete the files of the particular meeting room
         // DELETE FROM meeting_room_files
         // WHERE meeting_room = meetingRoom;
-        DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER)
+        dbHelper
         .delete("DELETE FROM room_fileshare "
             + "WHERE room_id = '" + meetingRoom + "';"); 
 
         // (2) Check everybody out.
         // Changes will cascade to User Detail.
-        DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER)
+        dbHelper
         .delete("DELETE FROM room_occupancy "
             + "WHERE room_id = '" + meetingRoom +"';");
 
         // Checkout of someone pretending to be host but with wrong token will trigger 400. 
-      } else if (!isFancyIdentical(actualHostToken, actualHostToken, token, numberOfCharactersIdentical) 
+      } else if (!isFancyIdentical(actualHostToken, actualHostToken, token, ConstLib.CHARACTERS_REQUIRED_FOR_SIMILARITY) 
           && getHostEmail(meetingRoom).equals(email)){
         routingContext.response()
         .putHeader("content-type", "application/json; charset=utf-8")
@@ -277,7 +212,7 @@ public class BackendServer extends AbstractVerticle {
 
         // Checkout of non-host will only delete that person's information.
       } else {
-        DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER)
+        dbHelper
         .delete("DELETE FROM room_occupancy "
             + "WHERE user_email = '" + email + "';"); 
       }
@@ -290,20 +225,14 @@ public class BackendServer extends AbstractVerticle {
   }
 
   private void getParticipants(RoutingContext routingContext){
-    String meetingRoom = routingContext.request().getParam("meetingRoomID");
-
-    try {
-      meetingRoom = URLDecoder.decode(meetingRoom, "UTF-8");
-    } catch (UnsupportedEncodingException e) {
-      e.printStackTrace();
-    }
+    String meetingRoom = routingContext.request().getParam(ConstLib.MEETING_ROOM_ID_URL_PATTERN);
 
     // Get the JSON object from the DB
-    List<JsonObject> result = DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER)
-        .select("SELECT user_detail.user_email, user_detail.info_key, user_detail.info_value "
+    List<JsonObject> result = dbHelper
+        .select("SELECT user_detail.user_email, user_detail.info_key, user_detail.info_value, room_occupancy.host_token "
             + "FROM room_occupancy JOIN user_detail "
             + "ON room_occupancy.user_email = user_detail.user_email "
-            + "WHERE room_occupancy.room_id = '" + meetingRoom + "';");
+            + "WHERE room_id = '" + meetingRoom + "';");
 
 
     // Assemble the users object.
@@ -311,13 +240,15 @@ public class BackendServer extends AbstractVerticle {
 
     for (JsonObject aResult : result) {
       JsonObject oneParticipant;
-      String userName = aResult.getString("user_email");
+      String userName = aResult.getString(UserDetail.user);
       if (!allParticipants.containsKey(userName)) {
         oneParticipant = new JsonObject();
+        boolean is_host = aResult.getString("host_token").equals("") ? false : true;
+        oneParticipant.put("is_host", is_host);
       } else {
         oneParticipant = allParticipants.getJsonObject(userName);
       }
-      oneParticipant.put(aResult.getString("info_key"), aResult.getString("info_value"));
+      oneParticipant.put(aResult.getString(UserDetail.asset), aResult.getString(UserDetail.value));
       allParticipants.put(userName, oneParticipant);
     }
 
@@ -328,13 +259,7 @@ public class BackendServer extends AbstractVerticle {
   }
 
   private void getRoomInformation (RoutingContext routingContext) { 
-    String meetingRoom = routingContext.request().getParam("meetingRoomID");
-
-    try {
-      meetingRoom = URLDecoder.decode(meetingRoom, "UTF-8");
-    } catch (UnsupportedEncodingException e) {
-      e.printStackTrace();
-    }
+    String meetingRoom = routingContext.request().getParam(ConstLib.MEETING_ROOM_ID_URL_PATTERN);
 
     // (1) Get meeting room information from the DB
     // SELECT asset_name, value, type 
@@ -342,7 +267,7 @@ public class BackendServer extends AbstractVerticle {
     // WHERE meeting_room_name = meetingRoom
 
     // Get the JSON object from the DB
-    List<JsonObject> result = DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER)
+    List<JsonObject> result = dbHelper
         .select("SELECT info_key, info_value, info_type "
             + "FROM room_details "
             + "WHERE room_id = '" + meetingRoom + "';");
@@ -354,13 +279,13 @@ public class BackendServer extends AbstractVerticle {
 
     for (JsonObject aResult : result) {
       JsonObject oneFile;
-      String fileName = aResult.getString("info_key");
+      String fileName = aResult.getString(ConstLib.ROOM_INFO_KEY);
       if (!allFiles.containsKey(fileName)) {
         oneFile = new JsonObject();
       } else {
         oneFile = allFiles.getJsonObject(fileName);
       }
-      oneFile.put(aResult.getString("info_type"), aResult.getString("info_value"));
+      oneFile.put(aResult.getString(ConstLib.ROOM_INFO_TYPE), aResult.getString(ConstLib.ROOM_INFO_VALUE));
       allFiles.put(fileName, oneFile);
     }
 
@@ -372,22 +297,24 @@ public class BackendServer extends AbstractVerticle {
   }
 
   private void getFiles(RoutingContext routingContext) {
-    String meetingRoom = routingContext.request().getParam("meetingRoomID");
-    String accessCode = routingContext.request().getParam("accessCode");
+    String meetingRoom = routingContext.request().getParam(ConstLib.MEETING_ROOM_ID_URL_PATTERN);
+    String accessCode = routingContext.request().getParam(ConstLib.ACCESS_CODE_PARAMETER);
 
-    logger.info(meetingRoom + " " + accessCode);
+    System.out.println(meetingRoom + " " + accessCode);
 
     String actualHostToken = getHostToken(meetingRoom);
     int numberOfCharactersIdentical = 5; 
-    
+
+    System.out.println(actualHostToken + " " + getMD5(actualHostToken));
+
     if(accessCode == null) {
       routingContext.response()
       .putHeader("content-type", "application/json; charset=utf-8")
       .setStatusCode(400)
       .end();
     } else if (isFancyIdentical(actualHostToken, getMD5(actualHostToken), accessCode, numberOfCharactersIdentical)) {
-   // Get the JSON object from the DB
-      List<JsonObject> result = DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER)
+      // Get the JSON object from the DB
+      List<JsonObject> result = dbHelper
           .select("SELECT file_header, file_link, file_type "
               + "FROM room_fileshare "
               + "WHERE room_id = '" + meetingRoom + "';");
@@ -399,13 +326,13 @@ public class BackendServer extends AbstractVerticle {
 
       for (JsonObject aResult : result) {
         JsonObject oneFile;
-        String fileName = aResult.getString("file_header");
+        String fileName = aResult.getString(RoomFileShare.assetName);
         if (!allFiles.containsKey(fileName)) {
           oneFile = new JsonObject();
         } else {
           oneFile = allFiles.getJsonObject(fileName);
         }
-        oneFile.put(aResult.getString("file_type"), aResult.getString("file_link"));
+        oneFile.put(aResult.getString(RoomFileShare.type), aResult.getString(RoomFileShare.value));
         allFiles.put(fileName, oneFile);
       }
 
@@ -423,24 +350,24 @@ public class BackendServer extends AbstractVerticle {
   }
 
   private void postFile(RoutingContext routingContext) {
-    String meetingRoom = routingContext.request().getParam("meetingRoomID");
+    String meetingRoom = routingContext.request().getParam(ConstLib.MEETING_ROOM_ID_URL_PATTERN);
 
     System.out.println(BackendServer.class.getName()+" : POST FILE " + routingContext.request().uri());
     JsonObject body = routingContext.getBodyAsJson();
     System.out.println(routingContext.getBodyAsString());
 
     if (body.isEmpty() 
-        || !body.containsKey("key") 
-        || !body.containsKey("value")
-        || !body.containsKey("accessCode")) {
+        || !body.containsKey(RoomFileShare.assetName) 
+        || !body.containsKey(RoomFileShare.value)
+        || !body.containsKey(ConstLib.ACCESS_CODE_PARAMETER)) {
       routingContext.response()
       .putHeader("content-type", "application/json; charset=utf-8")
       .setStatusCode(400)
       .end();
     } else {
-      String accessCode = body.getString("accessCode");
-      String key = body.getString("key");
-      String value = body.getString("value");
+      String accessCode = body.getString(ConstLib.ACCESS_CODE_PARAMETER);
+      String key = body.getString(RoomFileShare.assetName);
+      String value = body.getString(RoomFileShare.value);
 
       String actualHostToken = getHostToken(meetingRoom);      
       String hashedHostToken = getMD5(actualHostToken);
@@ -453,13 +380,13 @@ public class BackendServer extends AbstractVerticle {
       if (isFancyIdentical(actualHostToken, getMD5(actualHostToken), accessCode, numberOfCharactersIdentical)) {
 
         JsonObject recordObject = new JsonObject();
-        recordObject.put("room_id", meetingRoom);
-        recordObject.put("file_header", key);
-        recordObject.put("file_link", value);
-        recordObject.put("file_type", "url");
+        recordObject.put(RoomFileShare.meetingRoom, meetingRoom);
+        recordObject.put(RoomFileShare.assetName, key);
+        recordObject.put(RoomFileShare.value, value);
+        recordObject.put(RoomFileShare.type, "url");
 
-        boolean insertionSuccess = DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER)
-            .replace(recordObject, RoomFileShare.getInstance());
+        boolean insertionSuccess = dbHelper
+            .insert(recordObject, RoomFileShare.getInstance(), true);
 
         System.out.println("Insertion success: " + insertionSuccess);
 
@@ -489,7 +416,7 @@ public class BackendServer extends AbstractVerticle {
       .setStatusCode(400)
       .end();
     } else {
-      String meetingRoom = routingContext.request().getParam("meetingRoomID");
+      String meetingRoom = routingContext.request().getParam(ConstLib.MEETING_ROOM_ID_URL_PATTERN);
       String fileKey = body.getString("fileKey");
       String accessCode = body.getString("accessCode");
 
@@ -503,7 +430,7 @@ public class BackendServer extends AbstractVerticle {
       int numberOfCharactersIdentical = 5;
 
       if (isFancyIdentical(actualHostToken, actualHostToken, accessCode, numberOfCharactersIdentical)) {
-        DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER).delete("DELETE FROM room_fileshare "
+        dbHelper.delete("DELETE FROM room_fileshare "
             + "WHERE file_header = '" + fileKey + "' "
             + "AND room_id = '" + meetingRoom + "';");
 
@@ -521,8 +448,99 @@ public class BackendServer extends AbstractVerticle {
     }
   }
 
+  private void insertAllUserInformation(JsonObject body) {
+    String email = body.getString(RoomOccupancy.user);
+    String firstName = body.getString(UserDetail.firstName);
+    String lastName = body.getString(UserDetail.lastName);
+    String dateOfBirth = body.getString(UserDetail.dateOfBirth);
+    String resumeLink = body.getString(UserDetail.resumeLink);
+    String profilePicture = body.getString(UserDetail.profilePicture);
+    String position = body.getString(UserDetail.position);
+    String company = body.getString(UserDetail.company); 
+
+    // Assemble the recordObject to be inserted into the user table.
+    JsonObject recordObject = new JsonObject();
+    recordObject.put(UserDetail.user, email);
+    recordObject.put(UserDetail.asset, UserDetail.user);
+    recordObject.put(UserDetail.value, email);
+    recordObject.put(UserDetail.type, "text");
+
+    // Do the insertion
+    dbHelper.insert(recordObject, UserDetail.getInstance(), true);
+
+    // Assemble the recordObject to be inserted into the user table.
+    recordObject = new JsonObject();
+    recordObject.put(UserDetail.user, email);
+    recordObject.put(UserDetail.asset, UserDetail.firstName);
+    recordObject.put(UserDetail.value, firstName);
+    recordObject.put(UserDetail.type, "text");
+
+    // Do the insertion
+    dbHelper.insert(recordObject, UserDetail.getInstance(), true);
+
+    // Assemble the recordObject to be inserted into the user table.
+    recordObject = new JsonObject();
+    recordObject.put(UserDetail.user, email);
+    recordObject.put(UserDetail.asset, UserDetail.lastName);
+    recordObject.put(UserDetail.value, lastName);
+    recordObject.put(UserDetail.type, "text");
+
+    // Do the insertion
+    dbHelper.insert(recordObject, UserDetail.getInstance(), true);
+
+    // Assemble the recordObject to be inserted into the user table.
+    recordObject = new JsonObject();
+    recordObject.put(UserDetail.user, email);
+    recordObject.put(UserDetail.asset, UserDetail.dateOfBirth);
+    recordObject.put(UserDetail.value, dateOfBirth);
+    recordObject.put(UserDetail.type, "text");
+
+    // Do the insertion
+    dbHelper.insert(recordObject, UserDetail.getInstance());
+
+    // Assemble the recordObject to be inserted into the user table.
+    recordObject = new JsonObject();
+    recordObject.put(UserDetail.user, email);
+    recordObject.put(UserDetail.asset, UserDetail.resumeLink);
+    recordObject.put(UserDetail.value, resumeLink);
+    recordObject.put(UserDetail.type, "url");
+
+    // Do the insertion
+    dbHelper.insert(recordObject, UserDetail.getInstance(), true);
+
+    // Assemble the recordObject to be inserted into the user table.
+    recordObject = new JsonObject();
+    recordObject.put(UserDetail.user, email);
+    recordObject.put(UserDetail.asset, UserDetail.profilePicture);
+    recordObject.put(UserDetail.value, profilePicture);
+    recordObject.put(UserDetail.type, "image");
+
+    // Do the insertion
+    dbHelper.insert(recordObject, UserDetail.getInstance());
+
+    // Assemble the recordObject to be inserted into the user table.
+    recordObject = new JsonObject();
+    recordObject.put(UserDetail.user, email);
+    recordObject.put(UserDetail.asset, UserDetail.position);
+    recordObject.put(UserDetail.value, position);
+    recordObject.put(UserDetail.type, "text");
+
+    // Do the insertion
+    dbHelper.insert(recordObject, UserDetail.getInstance(), true);
+
+    // Assemble the recordObject to be inserted into the user table.
+    recordObject = new JsonObject();
+    recordObject.put(UserDetail.user, email);
+    recordObject.put(UserDetail.asset, UserDetail.company);
+    recordObject.put(UserDetail.value, company);
+    recordObject.put(UserDetail.type, "text");
+
+    // Do the insertion
+    dbHelper.insert(recordObject, UserDetail.getInstance());
+  }
+
   private String getHostToken(String meetingRoomID) {
-    List<JsonObject> result = DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER)
+    List<JsonObject> result = dbHelper
         .select("SELECT host_token "
             + "FROM room_occupancy "
             + "WHERE room_id = '" + meetingRoomID + "'"
@@ -539,7 +557,7 @@ public class BackendServer extends AbstractVerticle {
   }
 
   private String getHostEmail(String meetingRoomID) {
-    List<JsonObject> result = DBHelper.getInstance(ConstLib.INFORMATION_BROADCASTER)
+    List<JsonObject> result = dbHelper
         .select("SELECT user_email "
             + "FROM room_occupancy "
             + "WHERE room_id = '" + meetingRoomID + "'"
