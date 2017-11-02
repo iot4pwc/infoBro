@@ -49,7 +49,7 @@ public class BackendServer extends AbstractVerticle {
 
       vertx.createHttpServer(
           new HttpServerOptions()
-           // If running HTTPS
+          // If running HTTPS
           .setSsl(true)
           .setPemKeyCertOptions(
               new PemKeyCertOptions()
@@ -57,7 +57,7 @@ public class BackendServer extends AbstractVerticle {
               .setCertPath(ConstLib.CERTIFICATE_PATH))
           ).requestHandler(router::accept).listen(ConstLib.HTTPS_SERVER_PORT, ConstLib.HTTP_SERVER_IP);
       // If running HTTP
-//       ).requestHandler(router::accept).listen(ConstLib.HTTP_SERVER_PORT, ConstLib.HTTP_SERVER_IP);
+      //       ).requestHandler(router::accept).listen(ConstLib.HTTP_SERVER_PORT, ConstLib.HTTP_SERVER_IP);
 
 
       logger.info("RESTful service running on port " + ConstLib.HTTP_SERVER_PORT);
