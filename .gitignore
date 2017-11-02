@@ -2,6 +2,7 @@ source/source.iml
 source/.idea/
 web/dist
 web/node_modules
+web/package-lock.json
 source/.classpath
 source/.gitignore
 source/.settings
@@ -10,3 +11,6 @@ source/file-uploads
 source/logs/
 source/target
 source/.project
+.eslintignore
+.eslintrc.json
+
