@@ -55,9 +55,9 @@ public class BackendServer extends AbstractVerticle {
 //              new PemKeyCertOptions()
 //              .setKeyPath(ConstLib.PRIVATE_KEY_PATH)
 //              .setCertPath(ConstLib.CERTIFICATE_PATH))
-//          ).requestHandler(router::accept).listen(ConstLib.HTTPS_SERVER_PORT, ConstLib.HTTP_SERVER_IP);
+//          ).requestHandler(router::accept).listen(ConstLib.HTTPS_SERVER_PORT);
       // If running HTTP
-             ).requestHandler(router::accept).listen(ConstLib.HTTP_SERVER_PORT, ConstLib.HTTP_SERVER_IP);
+             ).requestHandler(router::accept).listen(ConstLib.HTTP_SERVER_PORT);
 
 
       logger.info("RESTful service running on port " + ConstLib.HTTP_SERVER_PORT);

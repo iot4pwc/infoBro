@@ -10,9 +10,9 @@ brew upgrade yarn
 mkdir ../web && cd ../web
 # install dependencies
 yarn init --yes
-yarn add --dev webpack webpack-dev-server babel-core babel-loader babel-preset-react babel-preset-es2015 \
+yarn add --dev webpack webpack-dev-server babel-cli babel-core babel-loader babel-preset-react babel-preset-es2015 \
 eslint flow css-loader less less-loader html-webpack-plugin source-map extract-text-webpack-plugin redux-devtools
-yarn add react react-dom react-router redux redux-thunk redux-promise react-redux
+yarn add react react-router redux redux-thunk redux-promise react-redux
 yarn install
 
 echo 'const path = require('path');
