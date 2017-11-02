@@ -1,6 +1,8 @@
 package com.iot4pwc.constants;
 
 import org.apache.logging.log4j.Level;
+import com.iot4pwc.components.tables.RoomOccupancy;
+import com.iot4pwc.components.tables.UserDetail;
 
 public class ConstLib {
   public static final String BACKEND_WORKER_EXECUTOR_POOL = "";
@@ -37,6 +39,19 @@ public class ConstLib {
   public static final String ROOM_INFO_KEY = "info_key";
   public static final String ROOM_INFO_VALUE = "info_value";
   public static final String ROOM_INFO_TYPE = "info_type";
+  
+  // 
+  public static final String[] REQUIRED_TEXT_KEYS = { RoomOccupancy.user,
+      UserDetail.firstName,
+      UserDetail.lastName,
+      UserDetail.dateOfBirth,
+      UserDetail.position,
+      UserDetail.company
+  };
+
+  public static final String[] REQUIRED_URL_KEYS = { UserDetail.resumeLink };
+
+  public static final String[] REQUIRED_IMAGE_KEYS = { UserDetail.profilePicture };
   
   //TODO: Logging not working for now.
   public static final Level LOGGING_LEVEL = Level.INFO;
