@@ -1,6 +1,8 @@
 package com.iot4pwc.verticles;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import org.apache.logging.log4j.LogManager;
@@ -46,13 +48,17 @@ public class BackendServer extends AbstractVerticle {
       router.delete("/:meetingRoomID/deleteFile").handler(this::deleteFile);
 
       vertx.createHttpServer(
-        new HttpServerOptions()
-          .setSsl(true)
-          .setPemKeyCertOptions(
-            new PemKeyCertOptions()
-              .setKeyPath(ConstLib.PRIVATE_KEY_PATH)
-              .setCertPath(ConstLib.CERTIFICATE_PATH))
-      ).requestHandler(router::accept).listen(ConstLib.HTTPS_SERVER_PORT, ConstLib.HTTP_SERVER_IP);
+          new HttpServerOptions()
+          // If running HTTPS
+//          .setSsl(true)
+//          .setPemKeyCertOptions(
+//              new PemKeyCertOptions()
+//              .setKeyPath(ConstLib.PRIVATE_KEY_PATH)
+//              .setCertPath(ConstLib.CERTIFICATE_PATH))
+//          ).requestHandler(router::accept).listen(ConstLib.HTTPS_SERVER_PORT, ConstLib.HTTP_SERVER_IP);
+      // If running HTTP
+             ).requestHandler(router::accept).listen(ConstLib.HTTP_SERVER_PORT, ConstLib.HTTP_SERVER_IP);
+
 
       logger.info("RESTful service running on port " + ConstLib.HTTP_SERVER_PORT);
     });
@@ -65,18 +71,18 @@ public class BackendServer extends AbstractVerticle {
     allUUIDs = allUUIDs.replaceAll(",", "','");
 
     List<JsonObject> result = dbHelper
-      .select("SELECT uuid_room.uuid, uuid_room.room_id, room_info.room_name "
-        + "FROM uuid_room "
-        + "JOIN room_info "
-        + "ON room_info.room_id = uuid_room.room_id "
-        + "WHERE uuid_room.uuid IN ('" + allUUIDs + "');");
+        .select("SELECT uuid_room.uuid, uuid_room.room_id, room_info.room_name "
+            + "FROM uuid_room "
+            + "JOIN room_info "
+            + "ON room_info.room_id = uuid_room.room_id "
+            + "WHERE uuid_room.uuid IN ('" + allUUIDs + "');");
 
     JsonArray arr = new JsonArray(result);
     JsonObject obj = new JsonObject().put("result", arr);
     routingContext.response()
-      .putHeader("content-type", "application/json; charset=utf-8")
-      .setStatusCode(200)
-      .end(obj.encodePrettily());
+    .putHeader("content-type", "application/json; charset=utf-8")
+    .setStatusCode(200)
+    .end(obj.encodePrettily());
   }
 
   private void checkin(RoutingContext routingContext) {
@@ -85,19 +91,19 @@ public class BackendServer extends AbstractVerticle {
     logger.info(routingContext.getBodyAsString());
 
     if (body.isEmpty()
-      || !body.containsKey(RoomOccupancy.hostFlag)
-      || !body.containsKey(RoomOccupancy.user)
-      || !body.containsKey(UserDetail.firstName)
-      || !body.containsKey(UserDetail.lastName)
-      || !body.containsKey(UserDetail.dateOfBirth)
-      || !body.containsKey(UserDetail.resumeLink)
-      || !body.containsKey(UserDetail.profilePicture)
-      || !body.containsKey(UserDetail.position)
-      || !body.containsKey(UserDetail.company)) {
+        || !body.containsKey(RoomOccupancy.hostFlag)
+        || !body.containsKey(RoomOccupancy.user)
+        || !body.containsKey(UserDetail.firstName)
+        || !body.containsKey(UserDetail.lastName)
+        || !body.containsKey(UserDetail.dateOfBirth)
+        || !body.containsKey(UserDetail.resumeLink)
+        || !body.containsKey(UserDetail.profilePicture)
+        || !body.containsKey(UserDetail.position)
+        || !body.containsKey(UserDetail.company)) {
       routingContext.response()
-        .putHeader("content-type", "application/json; charset=utf-8")
-        .setStatusCode(400)
-        .end();
+      .putHeader("content-type", "application/json; charset=utf-8")
+      .setStatusCode(400)
+      .end();
     } else {
       String meetingRoom = routingContext.request().getParam(ConstLib.MEETING_ROOM_ID_URL_PATTERN);
       boolean hostFlag = body.getBoolean(RoomOccupancy.hostFlag);
@@ -138,9 +144,9 @@ public class BackendServer extends AbstractVerticle {
       insertAllUserInformation(body);
 
       routingContext.response()
-        .putHeader("content-type", "application/json; charset=utf-8")
-        .setStatusCode(200)
-        .end(response.encodePrettily());
+      .putHeader("content-type", "application/json; charset=utf-8")
+      .setStatusCode(200)
+      .end(response.encodePrettily());
     }
   }
 
@@ -150,51 +156,62 @@ public class BackendServer extends AbstractVerticle {
     logger.info(routingContext.getBodyAsString());
 
     if (body.isEmpty()
-      || !body.containsKey(RoomOccupancy.user)) {
+        || !body.containsKey(RoomOccupancy.user)) {
       routingContext.response()
-        .putHeader("content-type", "application/json; charset=utf-8")
-        .setStatusCode(400)
-        .end();
+      .putHeader("content-type", "application/json; charset=utf-8")
+      .setStatusCode(400)
+      .end();
     } else {
       String meetingRoom = routingContext.request().getParam(ConstLib.MEETING_ROOM_ID_URL_PATTERN);
       String email = body.getString(RoomOccupancy.user);
       String token = body.getString(RoomOccupancy.token);
 
-      // We need to do three things here:
       String actualHostToken = getHostToken(meetingRoom);
-      logger.info("Similarity check: " + isFancyIdentical(actualHostToken, actualHostToken, token, 5));
-
+      
+      // No host in the meeting.
+      if (actualHostToken == null) {
+        logger.info("Actual host token not defined / null.");
+        dbHelper
+        .delete("DELETE FROM room_occupancy "
+            + "WHERE user_email = '" + email + "';");
+        routingContext.response()
+        .putHeader("content-type", "application/json; charset=utf-8")
+        .setStatusCode(200)
+        .end();
+        return;
+      }
+        
       // Checkout of host will delete all files in meeting room and check everybody else out.
       if (isFancyIdentical(actualHostToken, actualHostToken, token, ConstLib.CHARACTERS_REQUIRED_FOR_SIMILARITY)) {
         dbHelper
-          .delete("DELETE FROM room_fileshare "
+        .delete("DELETE FROM room_fileshare "
             + "WHERE room_id = '" + meetingRoom + "';");
 
         // (2) Check everybody out.
         dbHelper
-          .delete("DELETE FROM room_occupancy "
+        .delete("DELETE FROM room_occupancy "
             + "WHERE room_id = '" + meetingRoom + "';");
 
         // Checkout of someone pretending to be host but with wrong token will trigger 400. 
       } else if (!isFancyIdentical(actualHostToken, actualHostToken, token, ConstLib.CHARACTERS_REQUIRED_FOR_SIMILARITY)
-        && getHostEmail(meetingRoom).equals(email)) {
+          && getHostEmail(meetingRoom).equals(email)) {
         routingContext.response()
-          .putHeader("content-type", "application/json; charset=utf-8")
-          .setStatusCode(400)
-          .end();
+        .putHeader("content-type", "application/json; charset=utf-8")
+        .setStatusCode(400)
+        .end();
         return;
 
         // Checkout of non-host will only delete that person's information.
       } else {
         dbHelper
-          .delete("DELETE FROM room_occupancy "
+        .delete("DELETE FROM room_occupancy "
             + "WHERE user_email = '" + email + "';");
       }
 
       routingContext.response()
-        .putHeader("content-type", "application/json; charset=utf-8")
-        .setStatusCode(200)
-        .end();
+      .putHeader("content-type", "application/json; charset=utf-8")
+      .setStatusCode(200)
+      .end();
     }
   }
 
@@ -202,10 +219,10 @@ public class BackendServer extends AbstractVerticle {
     String meetingRoom = routingContext.request().getParam(ConstLib.MEETING_ROOM_ID_URL_PATTERN);
 
     List<JsonObject> result = dbHelper
-      .select("SELECT user_detail.user_email, user_detail.info_key, user_detail.info_value, room_occupancy.host_token "
-        + "FROM room_occupancy JOIN user_detail "
-        + "ON room_occupancy.user_email = user_detail.user_email "
-        + "WHERE room_id = '" + meetingRoom + "';");
+        .select("SELECT user_detail.user_email, user_detail.info_key, user_detail.info_value, room_occupancy.host_token "
+            + "FROM room_occupancy JOIN user_detail "
+            + "ON room_occupancy.user_email = user_detail.user_email "
+            + "WHERE room_id = '" + meetingRoom + "';");
 
     JsonObject allParticipants = new JsonObject();
 
@@ -224,9 +241,9 @@ public class BackendServer extends AbstractVerticle {
     }
 
     routingContext.response()
-      .putHeader("content-type", "application/json; charset=utf-8")
-      .setStatusCode(200)
-      .end(allParticipants.encodePrettily());
+    .putHeader("content-type", "application/json; charset=utf-8")
+    .setStatusCode(200)
+    .end(allParticipants.encodePrettily());
   }
 
   private void getRoomInformation(RoutingContext routingContext) {
@@ -234,9 +251,9 @@ public class BackendServer extends AbstractVerticle {
 
     // (1) Get meeting room information from the DB
     List<JsonObject> result = dbHelper
-      .select("SELECT info_key, info_value, info_type "
-        + "FROM room_details "
-        + "WHERE room_id = '" + meetingRoom + "';");
+        .select("SELECT info_key, info_value, info_type "
+            + "FROM room_details "
+            + "WHERE room_id = '" + meetingRoom + "';");
 
     JsonObject allFiles = new JsonObject();
 
@@ -255,9 +272,9 @@ public class BackendServer extends AbstractVerticle {
     }
 
     routingContext.response()
-      .putHeader("content-type", "application/json; charset=utf-8")
-      .setStatusCode(200)
-      .end(allFiles.encodePrettily());
+    .putHeader("content-type", "application/json; charset=utf-8")
+    .setStatusCode(200)
+    .end(allFiles.encodePrettily());
   }
 
   private void getFiles(RoutingContext routingContext) {
@@ -268,15 +285,15 @@ public class BackendServer extends AbstractVerticle {
 
     if (accessCode == null) {
       routingContext.response()
-        .putHeader("content-type", "application/json; charset=utf-8")
-        .setStatusCode(400)
-        .end();
+      .putHeader("content-type", "application/json; charset=utf-8")
+      .setStatusCode(400)
+      .end();
     } else if (isFancyIdentical(actualHostToken, getMD5(actualHostToken), accessCode, NUM_OF_CHARACTERS_IDENTICAL)) {
       // Get the JSON object from the DB
       List<JsonObject> result = dbHelper
-        .select("SELECT file_header, file_link, file_type "
-          + "FROM room_fileshare "
-          + "WHERE room_id = '" + meetingRoom + "';");
+          .select("SELECT file_header, file_link, file_type "
+              + "FROM room_fileshare "
+              + "WHERE room_id = '" + meetingRoom + "';");
 
       JsonObject allFiles = new JsonObject();
 
@@ -295,14 +312,14 @@ public class BackendServer extends AbstractVerticle {
       }
 
       routingContext.response()
-        .putHeader("content-type", "application/json; charset=utf-8")
-        .setStatusCode(200)
-        .end(allFiles.encodePrettily());
+      .putHeader("content-type", "application/json; charset=utf-8")
+      .setStatusCode(200)
+      .end(allFiles.encodePrettily());
     } else {
       routingContext.response()
-        .putHeader("content-type", "application/json; charset=utf-8")
-        .setStatusCode(400)
-        .end();
+      .putHeader("content-type", "application/json; charset=utf-8")
+      .setStatusCode(400)
+      .end();
     }
   }
 
@@ -314,13 +331,13 @@ public class BackendServer extends AbstractVerticle {
     logger.info(routingContext.getBodyAsString());
 
     if (body.isEmpty()
-      || !body.containsKey(RoomFileShare.assetName)
-      || !body.containsKey(RoomFileShare.value)
-      || !body.containsKey(ConstLib.ACCESS_CODE_PARAMETER)) {
+        || !body.containsKey(RoomFileShare.assetName)
+        || !body.containsKey(RoomFileShare.value)
+        || !body.containsKey(ConstLib.ACCESS_CODE_PARAMETER)) {
       routingContext.response()
-        .putHeader("content-type", "application/json; charset=utf-8")
-        .setStatusCode(400)
-        .end();
+      .putHeader("content-type", "application/json; charset=utf-8")
+      .setStatusCode(400)
+      .end();
     } else {
       String accessCode = body.getString(ConstLib.ACCESS_CODE_PARAMETER);
       String key = body.getString(RoomFileShare.assetName);
@@ -341,19 +358,19 @@ public class BackendServer extends AbstractVerticle {
         recordObject.put(RoomFileShare.type, "url");
 
         boolean insertionSuccess = dbHelper
-          .insert(recordObject, RoomFileShare.getInstance(), true);
+            .insert(recordObject, RoomFileShare.getInstance(), true);
 
         logger.info("Insertion success: " + insertionSuccess);
 
         routingContext.response()
-          .putHeader("content-type", "application/json; charset=utf-8")
-          .setStatusCode(200)
-          .end();
+        .putHeader("content-type", "application/json; charset=utf-8")
+        .setStatusCode(200)
+        .end();
       } else {
         routingContext.response()
-          .putHeader("content-type", "application/json; charset=utf-8")
-          .setStatusCode(400)
-          .end();
+        .putHeader("content-type", "application/json; charset=utf-8")
+        .setStatusCode(400)
+        .end();
       }
     }
   }
@@ -364,12 +381,12 @@ public class BackendServer extends AbstractVerticle {
     logger.info(routingContext.getBodyAsString());
 
     if (body.isEmpty()
-      || !body.containsKey("fileKey")
-      || !body.containsKey("accessCode")) {
+        || !body.containsKey("fileKey")
+        || !body.containsKey("accessCode")) {
       routingContext.response()
-        .putHeader("content-type", "application/json; charset=utf-8")
-        .setStatusCode(400)
-        .end();
+      .putHeader("content-type", "application/json; charset=utf-8")
+      .setStatusCode(400)
+      .end();
     } else {
       String meetingRoom = routingContext.request().getParam(ConstLib.MEETING_ROOM_ID_URL_PATTERN);
       String fileKey = body.getString("fileKey");
@@ -384,121 +401,53 @@ public class BackendServer extends AbstractVerticle {
 
       if (isFancyIdentical(actualHostToken, actualHostToken, accessCode, NUM_OF_CHARACTERS_IDENTICAL)) {
         dbHelper.delete("DELETE FROM room_fileshare "
-          + "WHERE file_header = '" + fileKey + "' "
-          + "AND room_id = '" + meetingRoom + "';");
+            + "WHERE file_header = '" + fileKey + "' "
+            + "AND room_id = '" + meetingRoom + "';");
 
         routingContext.response()
-          .putHeader("content-type", "application/json; charset=utf-8")
-          .setStatusCode(200)
-          .end();
+        .putHeader("content-type", "application/json; charset=utf-8")
+        .setStatusCode(200)
+        .end();
 
       } else {
         routingContext.response()
-          .putHeader("content-type", "application/json; charset=utf-8")
-          .setStatusCode(400)
-          .end();
+        .putHeader("content-type", "application/json; charset=utf-8")
+        .setStatusCode(400)
+        .end();
       }
     }
   }
 
   private void insertAllUserInformation(JsonObject body) {
-    String email = body.getString(RoomOccupancy.user);
-    String firstName = body.getString(UserDetail.firstName);
-    String lastName = body.getString(UserDetail.lastName);
-    String dateOfBirth = body.getString(UserDetail.dateOfBirth);
-    String resumeLink = body.getString(UserDetail.resumeLink);
-    String profilePicture = body.getString(UserDetail.profilePicture);
-    String position = body.getString(UserDetail.position);
-    String company = body.getString(UserDetail.company);
+    JsonObject recordObject;
+    String userEmail = body.getString(RoomOccupancy.user);  // used over and over again --> bring to method scope
 
-    // Assemble the recordObject to be inserted into the user table.
-    JsonObject recordObject = new JsonObject();
-    recordObject.put(UserDetail.user, email);
-    recordObject.put(UserDetail.asset, UserDetail.user);
-    recordObject.put(UserDetail.value, email);
-    recordObject.put(UserDetail.type, "text");
+    // Acquire the mapping of keys to type
+    Map<String[], String> arrayOfKeysToTypeMapping = new HashMap<String[], String>();
+    arrayOfKeysToTypeMapping.put(ConstLib.REQUIRED_TEXT_KEYS, "text");
+    arrayOfKeysToTypeMapping.put(ConstLib.REQUIRED_URL_KEYS, "url");
+    arrayOfKeysToTypeMapping.put(ConstLib.REQUIRED_IMAGE_KEYS, "image");
 
-    // Do the insertion
-    dbHelper.insert(recordObject, UserDetail.getInstance(), true);
-
-    // Assemble the recordObject to be inserted into the user table.
-    recordObject = new JsonObject();
-    recordObject.put(UserDetail.user, email);
-    recordObject.put(UserDetail.asset, UserDetail.firstName);
-    recordObject.put(UserDetail.value, firstName);
-    recordObject.put(UserDetail.type, "text");
-
-    // Do the insertion
-    dbHelper.insert(recordObject, UserDetail.getInstance(), true);
-
-    // Assemble the recordObject to be inserted into the user table.
-    recordObject = new JsonObject();
-    recordObject.put(UserDetail.user, email);
-    recordObject.put(UserDetail.asset, UserDetail.lastName);
-    recordObject.put(UserDetail.value, lastName);
-    recordObject.put(UserDetail.type, "text");
-
-    // Do the insertion
-    dbHelper.insert(recordObject, UserDetail.getInstance(), true);
-
-    // Assemble the recordObject to be inserted into the user table.
-    recordObject = new JsonObject();
-    recordObject.put(UserDetail.user, email);
-    recordObject.put(UserDetail.asset, UserDetail.dateOfBirth);
-    recordObject.put(UserDetail.value, dateOfBirth);
-    recordObject.put(UserDetail.type, "text");
-
-    // Do the insertion
-    dbHelper.insert(recordObject, UserDetail.getInstance(), true);
-
-    // Assemble the recordObject to be inserted into the user table.
-    recordObject = new JsonObject();
-    recordObject.put(UserDetail.user, email);
-    recordObject.put(UserDetail.asset, UserDetail.resumeLink);
-    recordObject.put(UserDetail.value, resumeLink);
-    recordObject.put(UserDetail.type, "url");
-
-    // Do the insertion
-    dbHelper.insert(recordObject, UserDetail.getInstance(), true);
-
-    // Assemble the recordObject to be inserted into the user table.
-    recordObject = new JsonObject();
-    recordObject.put(UserDetail.user, email);
-    recordObject.put(UserDetail.asset, UserDetail.profilePicture);
-    recordObject.put(UserDetail.value, profilePicture);
-    recordObject.put(UserDetail.type, "image");
-
-    // Do the insertion
-    dbHelper.insert(recordObject, UserDetail.getInstance(), true);
-
-    // Assemble the recordObject to be inserted into the user table.
-    recordObject = new JsonObject();
-    recordObject.put(UserDetail.user, email);
-    recordObject.put(UserDetail.asset, UserDetail.position);
-    recordObject.put(UserDetail.value, position);
-    recordObject.put(UserDetail.type, "text");
-
-    // Do the insertion
-    dbHelper.insert(recordObject, UserDetail.getInstance(), true);
-
-    // Assemble the recordObject to be inserted into the user table.
-    recordObject = new JsonObject();
-    recordObject.put(UserDetail.user, email);
-    recordObject.put(UserDetail.asset, UserDetail.company);
-    recordObject.put(UserDetail.value, company);
-    recordObject.put(UserDetail.type, "text");
-
-    // Do the insertion
-    dbHelper.insert(recordObject, UserDetail.getInstance(), true);
+    // Fancy for loop for Xianru's enjoyment ;)
+    for (String[] oneCategoryOfKeys: arrayOfKeysToTypeMapping.keySet()) {
+      for (String oneTextKey: oneCategoryOfKeys) {
+        recordObject = new JsonObject();
+        recordObject.put(UserDetail.user, userEmail);
+        recordObject.put(UserDetail.asset, oneTextKey);
+        recordObject.put(UserDetail.value, body.getString(oneTextKey));
+        recordObject.put(UserDetail.type, arrayOfKeysToTypeMapping.get(oneCategoryOfKeys));
+        dbHelper.insert(recordObject, UserDetail.getInstance(), true);
+      }
+    }
   }
 
   private String getHostToken(String meetingRoomID) {
     List<JsonObject> result = dbHelper
-      .select("SELECT host_token "
-        + "FROM room_occupancy "
-        + "WHERE room_id = '" + meetingRoomID + "'"
-        + "AND host_token IS NOT NULL "
-        + "AND host_token != '';");
+        .select("SELECT host_token "
+            + "FROM room_occupancy "
+            + "WHERE room_id = '" + meetingRoomID + "'"
+            + "AND host_token IS NOT NULL "
+            + "AND host_token != '';");
     if (result.size() > 0) {
       logger.info(result);
       return result.get(0).getString("host_token");
@@ -510,13 +459,20 @@ public class BackendServer extends AbstractVerticle {
 
   private String getHostEmail(String meetingRoomID) {
     List<JsonObject> result = dbHelper
-      .select("SELECT user_email "
-        + "FROM room_occupancy "
-        + "WHERE room_id = '" + meetingRoomID + "'"
-        + "AND host_token IS NOT NULL "
-        + "AND host_token != '';");
+        .select("SELECT user_email "
+            + "FROM room_occupancy "
+            + "WHERE room_id = '" + meetingRoomID + "'"
+            + "AND host_token IS NOT NULL "
+            + "AND host_token != '';");
 
-    return result.get(0).getString("user_email");
+    String returnValue;
+    try {
+      returnValue = result.get(0).getString("user_email");
+    } catch (Exception e) {
+      e.printStackTrace();
+      returnValue = "NO_HOST_EMAIL_FOUND";
+    }
+    return returnValue;
   }
 
   private String getMD5(String unHashed) {
@@ -535,9 +491,9 @@ public class BackendServer extends AbstractVerticle {
 
   private boolean isFancyIdentical(String unhashed, String hashed, String provided, int numberOfCharacters) {
     if (provided.substring(0, Math.min(provided.length(), numberOfCharacters))
-      .equals(unhashed.substring(0, Math.min(unhashed.length(), numberOfCharacters)))
-      || provided.substring(0, Math.min(provided.length(), numberOfCharacters))
-      .equals(hashed.substring(0, Math.min(hashed.length(), numberOfCharacters)))) {
+        .equals(unhashed.substring(0, Math.min(unhashed.length(), numberOfCharacters)))
+        || provided.substring(0, Math.min(provided.length(), numberOfCharacters))
+        .equals(hashed.substring(0, Math.min(hashed.length(), numberOfCharacters)))) {
       return true;
     }
     return false;
