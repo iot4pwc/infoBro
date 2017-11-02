@@ -50,14 +50,14 @@ public class BackendServer extends AbstractVerticle {
       vertx.createHttpServer(
           new HttpServerOptions()
           // If running HTTPS
-          .setSsl(true)
-          .setPemKeyCertOptions(
-              new PemKeyCertOptions()
-              .setKeyPath(ConstLib.PRIVATE_KEY_PATH)
-              .setCertPath(ConstLib.CERTIFICATE_PATH))
-          ).requestHandler(router::accept).listen(ConstLib.HTTPS_SERVER_PORT, ConstLib.HTTP_SERVER_IP);
+//          .setSsl(true)
+//          .setPemKeyCertOptions(
+//              new PemKeyCertOptions()
+//              .setKeyPath(ConstLib.PRIVATE_KEY_PATH)
+//              .setCertPath(ConstLib.CERTIFICATE_PATH))
+//          ).requestHandler(router::accept).listen(ConstLib.HTTPS_SERVER_PORT, ConstLib.HTTP_SERVER_IP);
       // If running HTTP
-      //       ).requestHandler(router::accept).listen(ConstLib.HTTP_SERVER_PORT, ConstLib.HTTP_SERVER_IP);
+             ).requestHandler(router::accept).listen(ConstLib.HTTP_SERVER_PORT, ConstLib.HTTP_SERVER_IP);
 
 
       logger.info("RESTful service running on port " + ConstLib.HTTP_SERVER_PORT);
@@ -166,10 +166,21 @@ public class BackendServer extends AbstractVerticle {
       String email = body.getString(RoomOccupancy.user);
       String token = body.getString(RoomOccupancy.token);
 
-      // We need to do three things here:
       String actualHostToken = getHostToken(meetingRoom);
-      logger.info("Similarity check: " + isFancyIdentical(actualHostToken, actualHostToken, token, 5));
-
+      
+      // No host in the meeting.
+      if (actualHostToken == null) {
+        logger.info("Actual host token not defined / null.");
+        dbHelper
+        .delete("DELETE FROM room_occupancy "
+            + "WHERE user_email = '" + email + "';");
+        routingContext.response()
+        .putHeader("content-type", "application/json; charset=utf-8")
+        .setStatusCode(200)
+        .end();
+        return;
+      }
+        
       // Checkout of host will delete all files in meeting room and check everybody else out.
       if (isFancyIdentical(actualHostToken, actualHostToken, token, ConstLib.CHARACTERS_REQUIRED_FOR_SIMILARITY)) {
         dbHelper
@@ -454,7 +465,14 @@ public class BackendServer extends AbstractVerticle {
             + "AND host_token IS NOT NULL "
             + "AND host_token != '';");
 
-    return result.get(0).getString("user_email");
+    String returnValue;
+    try {
+      returnValue = result.get(0).getString("user_email");
+    } catch (Exception e) {
+      e.printStackTrace();
+      returnValue = "NO_HOST_EMAIL_FOUND";
+    }
+    return returnValue;
   }
 
   private String getMD5(String unHashed) {
