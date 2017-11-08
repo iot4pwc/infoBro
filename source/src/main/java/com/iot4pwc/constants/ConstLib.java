@@ -53,6 +53,9 @@ public class ConstLib {
 
   public static final String[] REQUIRED_IMAGE_KEYS = { UserDetail.profilePicture };
   
+  public static final String REQUIRED_HEADER_KEY = "secretKey";
+  public static final String REQUIRED_HEADER_VALUE = "secretValue";
+  
   //TODO: Logging not working for now.
   public static final Level LOGGING_LEVEL = Level.INFO;
   public static final String LOGGING_CONFIG = "log4j2.xml";
