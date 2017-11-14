@@ -184,7 +184,6 @@ private void checkin(RoutingContext routingContext) {
 private void checkout(RoutingContext routingContext) {
   JsonObject body = routingContext.getBodyAsJson();
   logger.info("DELETE " + routingContext.request().uri());
-  logger.info(routingContext.getBodyAsString());
 
   if (body.isEmpty()
       || !body.containsKey(RoomOccupancy.user)) {
@@ -219,10 +218,12 @@ private void checkout(RoutingContext routingContext) {
         .delete("DELETE FROM room_fileshare "
             + "WHERE room_id = '" + meetingRoom + "';");
 
-        // (2) Check everybody out.
+        // (2) Check host out.
         dbHelper
         .delete("DELETE FROM room_occupancy "
-            + "WHERE room_id = '" + meetingRoom + "';");
+            + "WHERE user_email = '" + email + "';");
+
+        System.out.println("Deleting all the files.");
 
         // Checkout of someone pretending to be host but with wrong token will trigger 400. 
       } else if (!isFancyIdentical(actualHostToken, actualHostToken, token, ConstLib.CHARACTERS_REQUIRED_FOR_SIMILARITY)
@@ -239,6 +240,8 @@ private void checkout(RoutingContext routingContext) {
       dbHelper
       .delete("DELETE FROM room_occupancy "
           + "WHERE user_email = '" + email + "';");
+      System.out.println("Deleting the attendee.");
+
     }
 
     routingContext.response()

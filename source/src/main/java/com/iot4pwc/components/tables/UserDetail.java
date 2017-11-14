@@ -16,7 +16,7 @@ public class UserDetail extends Queriable {
   
   public static final String firstName = "firstName";
   public static final String lastName = "lastName";
-  public static final String dateOfBirth = "dateOfBirth";
+  public static final String dateOfBirth = "age";
   public static final String resumeLink = "resumeLink";
   public static final String profilePicture = "profilePicture";
   public static final String position = "position";
