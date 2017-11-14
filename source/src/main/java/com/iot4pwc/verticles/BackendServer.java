@@ -213,26 +213,28 @@ private void checkout(RoutingContext routingContext) {
     }
 
     // Checkout of host will delete all files in meeting room and check everybody else out.
-    if (isFancyIdentical(actualHostToken, actualHostToken, token, ConstLib.CHARACTERS_REQUIRED_FOR_SIMILARITY)) {
-      dbHelper
-      .delete("DELETE FROM room_fileshare "
-          + "WHERE room_id = '" + meetingRoom + "';");
+    if (token != null) {
+      if (isFancyIdentical(actualHostToken, actualHostToken, token, ConstLib.CHARACTERS_REQUIRED_FOR_SIMILARITY)) {
+        dbHelper
+        .delete("DELETE FROM room_fileshare "
+            + "WHERE room_id = '" + meetingRoom + "';");
 
-      // (2) Check everybody out.
-      dbHelper
-      .delete("DELETE FROM room_occupancy "
-          + "WHERE room_id = '" + meetingRoom + "';");
+        // (2) Check everybody out.
+        dbHelper
+        .delete("DELETE FROM room_occupancy "
+            + "WHERE room_id = '" + meetingRoom + "';");
 
-      // Checkout of someone pretending to be host but with wrong token will trigger 400. 
-    } else if (!isFancyIdentical(actualHostToken, actualHostToken, token, ConstLib.CHARACTERS_REQUIRED_FOR_SIMILARITY)
-        && getHostEmail(meetingRoom).equals(email)) {
-      routingContext.response()
-      .putHeader("content-type", "application/json; charset=utf-8")
-      .setStatusCode(400)
-      .end();
-      return;
+        // Checkout of someone pretending to be host but with wrong token will trigger 400. 
+      } else if (!isFancyIdentical(actualHostToken, actualHostToken, token, ConstLib.CHARACTERS_REQUIRED_FOR_SIMILARITY)
+          && getHostEmail(meetingRoom).equals(email)) {
+        routingContext.response()
+        .putHeader("content-type", "application/json; charset=utf-8")
+        .setStatusCode(400)
+        .end();
+        return;
 
-      // Checkout of non-host will only delete that person's information.
+        // Checkout of non-host will only delete that person's information.
+      }
     } else {
       dbHelper
       .delete("DELETE FROM room_occupancy "
@@ -521,11 +523,13 @@ private String getMD5(String unHashed) {
 }
 
 private boolean isFancyIdentical(String unhashed, String hashed, String provided, int numberOfCharacters) {
-  if (provided.substring(0, Math.min(provided.length(), numberOfCharacters))
-      .equals(unhashed.substring(0, Math.min(unhashed.length(), numberOfCharacters)))
-      || provided.substring(0, Math.min(provided.length(), numberOfCharacters))
-      .equals(hashed.substring(0, Math.min(hashed.length(), numberOfCharacters)))) {
-    return true;
+  if (provided != null) {
+    if (provided.substring(0, Math.min(provided.length(), numberOfCharacters))
+        .equals(unhashed.substring(0, Math.min(unhashed.length(), numberOfCharacters)))
+        || provided.substring(0, Math.min(provided.length(), numberOfCharacters))
+        .equals(hashed.substring(0, Math.min(hashed.length(), numberOfCharacters)))) {
+      return true;
+    }
   }
   return false;
 }
