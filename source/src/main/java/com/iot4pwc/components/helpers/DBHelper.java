@@ -43,6 +43,13 @@ public class DBHelper {
     return DBHelper.instance;
   }
 
+  /**
+   * An updated insert method (fork from SP) that allows REPLACE INTO queries
+   * @param recordObject The JSONObject to insert/replace into
+   * @param table The table into which the insert/replace into should happen
+   * @param isReplace True if replace, false otherwise.
+   * @return True on success, false otherwise.
+   */
   public boolean insert (JsonObject recordObject, Queriable table, boolean isReplace) {
     try {
       Connection connection = ds.getConnection();
@@ -64,6 +71,15 @@ public class DBHelper {
     return false;
   }
   
+  /**
+   * An updated getInsertStatement method (fork from SP) that allows REPLACE INTO queries
+   * @param table The table into which the insert/replace into should happen
+   * @param recordObject The JSONObject to insert/replace into
+   * @param connection The connection to use when inserting/replacing into
+   * @param isReplace True if replace, false otherwise.
+   * @return void
+   * @throws SQLException
+   */
   private PreparedStatement getInsertStatement(
       Queriable table,
       JsonObject recordObject,
