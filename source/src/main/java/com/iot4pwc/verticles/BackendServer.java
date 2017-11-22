@@ -114,7 +114,7 @@ public class BackendServer extends AbstractVerticle {
 
   /**
    * API endpoint to obtain mapping from a list of UUIDs to room_id and room_name.
-   * For more details, see the Google Drive API docs.
+   * For more details, see the API docs on Google Drive: https://docs.google.com/presentation/d/1wW-ab9f7PL5swt90ESjxOoFRI8NOfLTHJnmC2rPUezI/edit#slide=id.g2994ed1fb8_0_0
    * @param routingContext
    */
   private void mapUUIDs(RoutingContext routingContext) {
@@ -140,7 +140,7 @@ public class BackendServer extends AbstractVerticle {
 
   /**
    * API endpoint to check in a given user to a given room.
-   * For more details, see the Google Drive API docs.
+   * For more details, see the API docs on Google Drive: https://docs.google.com/presentation/d/1wW-ab9f7PL5swt90ESjxOoFRI8NOfLTHJnmC2rPUezI/edit#slide=id.g2994ed1fb8_0_0
    * @param routingContext
    */
   private void checkin(RoutingContext routingContext) {
@@ -210,7 +210,7 @@ public class BackendServer extends AbstractVerticle {
 
   /**
    * API endpoint to check out a given user from a given room.
-   * For more details, see the Google Drive API docs.
+   * For more details, see the API docs on Google Drive: https://docs.google.com/presentation/d/1wW-ab9f7PL5swt90ESjxOoFRI8NOfLTHJnmC2rPUezI/edit#slide=id.g2994ed1fb8_0_0
    * @param routingContext
    */
   private void checkout(RoutingContext routingContext) {
@@ -285,7 +285,7 @@ public class BackendServer extends AbstractVerticle {
 
   /**
    * API endpoint to get all participants in a given room.
-   * For more details, see the Google Drive API docs.
+   * For more details, see the API docs on Google Drive: https://docs.google.com/presentation/d/1wW-ab9f7PL5swt90ESjxOoFRI8NOfLTHJnmC2rPUezI/edit#slide=id.g2994ed1fb8_0_0
    * @param routingContext
    */
   private void getParticipants(RoutingContext routingContext) {
@@ -321,7 +321,7 @@ public class BackendServer extends AbstractVerticle {
 
   /**
    * API endpoint to get all room information (e.g. instructions) associated with a given room.
-   * For more details, see the Google Drive API docs.
+   * For more details, see the API docs on Google Drive: https://docs.google.com/presentation/d/1wW-ab9f7PL5swt90ESjxOoFRI8NOfLTHJnmC2rPUezI/edit#slide=id.g2994ed1fb8_0_0
    * @param routingContext
    */
   private void getRoomInformation(RoutingContext routingContext) {
@@ -357,7 +357,7 @@ public class BackendServer extends AbstractVerticle {
 
   /**
    * API endpoint to get all files in a given room.
-   * For more details, see the Google Drive API docs.
+   * For more details, see the API docs on Google Drive: https://docs.google.com/presentation/d/1wW-ab9f7PL5swt90ESjxOoFRI8NOfLTHJnmC2rPUezI/edit#slide=id.g2994ed1fb8_0_0
    * @param routingContext
    */
   private void getFiles(RoutingContext routingContext) {
@@ -408,7 +408,7 @@ public class BackendServer extends AbstractVerticle {
 
   /**
    * API endpoint to post a file to the context of a given room.
-   * For more details, see the Google Drive API docs.
+   * For more details, see the API docs on Google Drive: https://docs.google.com/presentation/d/1wW-ab9f7PL5swt90ESjxOoFRI8NOfLTHJnmC2rPUezI/edit#slide=id.g2994ed1fb8_0_0
    * @param routingContext
    */
   private void postFile(RoutingContext routingContext) {
@@ -465,7 +465,7 @@ public class BackendServer extends AbstractVerticle {
 
   /**
    * API endpoint to delete one particular file from a given room.
-   * For more details, see the Google Drive API docs.
+   * For more details, see the API docs on Google Drive: https://docs.google.com/presentation/d/1wW-ab9f7PL5swt90ESjxOoFRI8NOfLTHJnmC2rPUezI/edit#slide=id.g2994ed1fb8_0_0
    * @param routingContext
    */
   private void deleteFile(RoutingContext routingContext) {
